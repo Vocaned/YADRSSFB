@@ -31,8 +31,12 @@ type ChannelData = {
 }
 let channel_data: ChannelData = {};
 
-const FEED_REGEX = /feed: ?(https?:\/\/.+)/gim
-const INTERVAL_REGEX = /interval: ?(\d+)/gim
+interface FeedRegexResult {
+  url: string,
+  prefix: string
+}
+const FEED_REGEX = /feed: ?(?<url>https?:\/\/\S+)( prefix: ?(?<prefix>.+))?/gim
+const INTERVAL_REGEX = /interval: ?(?<interval>\d+)/gim
 
 let file_exists = async (path: string) => {
   try {
@@ -60,18 +64,19 @@ let rss_tick = async () => {
 
       let interval = DEFAULT_INTERVAL;
       // Check if interval is present in topic
-      let interval_regex = INTERVAL_REGEX.exec(channel.topic);
-      if (interval_regex) interval = parseInt(interval_regex[1]);
+      let interval_regex = INTERVAL_REGEX.exec(channel.topic)?.groups?.interval;
+      if (interval_regex) interval = parseInt(interval_regex);
 
       // Check if interval has passed
       if ((new Date().getTime() - data.lastcheck) / 1000 < interval) continue;
       data.lastcheck = new Date().getTime();
 
       // Parse each feed present in topic
-      let feed_url: RegExpExecArray | null;
-      while (feed_url = FEED_REGEX.exec(channel.topic)) {
-        console.log(`Parsing feed ${feed_url[1]}`)
-        let feed = await parser.parseURL(feed_url[1]);
+      let groups: Partial<FeedRegexResult> | undefined;
+      while (groups = FEED_REGEX.exec(channel.topic)?.groups) {
+        if (!groups.url) continue;
+        console.log(`Parsing feed ${groups.url}`)
+        let feed = await parser.parseURL(groups.url);
 
         if (data.firstpass) {
           console.log(`Populating ${feed.title} SeenArticles with existing posts`)
@@ -86,8 +91,13 @@ let rss_tick = async () => {
           if ((item.title ?? item.link) === undefined) continue; // No title or link in article
           if (data.seen.includes(item.guid ?? item.link ?? item.title ?? '')) continue; // Already seen
 
-          if (item.link) await channel.createMessage({content: `[${item.title ?? item.link}](${item.link})`});
-          else await channel.createMessage({content: item.title});
+          let content = '';
+          if (groups.prefix) content = `${groups.prefix}: `;
+
+          if (item.link) content += `[${item.title ?? item.link}](${item.link})`;
+          else content += item.title;
+
+          await channel.createMessage({content: content});
 
           data.seen.push(item.guid ?? item.link ?? item.title ?? '');
           if (data.seen.length > MAX_SEEN_COUNT) data.seen.shift(); // Remove old entries
