@@ -20,11 +20,11 @@ const client = new ShardClient(process.env.DISCORD_TOKEN ?? '', {
 
 const MINIMUM_INTERVAL = 60;
 const DEFAULT_INTERVAL = 300;
+const MAX_SEEN_COUNT = 200;
 
 type ChannelData = {
   [channelId: string]: {
     seen: string[];
-    interval: number;
     lastcheck: number;
     firstpass: boolean;
   }
@@ -54,15 +54,17 @@ let rss_tick = async () => {
       if (!channel.topic || !channel.topic.match(FEED_REGEX)) continue; // No feeds found
 
       // Initialize default data for channel
-      if (!(channel.id in channel_data)) channel_data[channel.id] = {"seen": [], "interval": DEFAULT_INTERVAL, lastcheck: 0, firstpass: true};
+      if (!(channel.id in channel_data)) channel_data[channel.id] = {"seen": [], lastcheck: 0, firstpass: true};
       let data = channel_data[channel.id];
 
+
+      let interval = DEFAULT_INTERVAL;
       // Check if interval is present in topic
       let interval_regex = INTERVAL_REGEX.exec(channel.topic);
-      if (interval_regex) data.interval = parseInt(interval_regex[1]);
+      if (interval_regex) interval = parseInt(interval_regex[1]);
 
       // Check if interval has passed
-      if ((new Date().getTime() - data.lastcheck) / 1000 < data.interval) continue;
+      if ((new Date().getTime() - data.lastcheck) / 1000 < interval) continue;
       data.lastcheck = new Date().getTime();
 
       // Parse each feed present in topic
@@ -88,7 +90,7 @@ let rss_tick = async () => {
           else await channel.createMessage({content: item.title});
 
           data.seen.push(item.guid ?? item.link ?? item.title ?? '');
-          if (data.seen.length > 200) data.seen.shift(); // Remove old entries
+          if (data.seen.length > MAX_SEEN_COUNT) data.seen.shift(); // Remove old entries
         }
       }
       data.firstpass = false;
