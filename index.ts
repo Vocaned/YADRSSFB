@@ -61,7 +61,6 @@ let rss_tick = async () => {
       if (!(channel.id in channel_data)) channel_data[channel.id] = {"seen": [], lastcheck: 0, firstpass: true};
       let data = channel_data[channel.id];
 
-
       let interval = DEFAULT_INTERVAL;
       // Check if interval is present in topic
       let interval_regex = INTERVAL_REGEX.exec(channel.topic)?.groups?.interval;
