@@ -75,7 +75,13 @@ let rss_tick = async () => {
       while (groups = FEED_REGEX.exec(channel.topic)?.groups) {
         if (!groups.url) continue;
         console.log(`Parsing feed ${groups.url}`)
-        let feed = await parser.parseURL(groups.url);
+        let feed;
+        try {
+          feed = await parser.parseURL(groups.url);
+        } catch (e) {
+          console.log(`Error trying to parse ${groups.url}: ${e}`);
+          continue;
+        }
 
         if (data.firstpass) {
           console.log(`Populating ${feed.title} SeenArticles with existing posts`)
