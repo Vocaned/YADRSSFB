@@ -40,7 +40,7 @@ const INTERVAL_REGEX = /interval: ?(?<interval>\d+)/gim
 
 let file_exists = async (path: string) => {
   try {
-    await fs.access('.cache', fs.constants.F_OK);
+    await fs.access(path, fs.constants.F_OK);
     return true;
   } catch {
     return false;
@@ -117,7 +117,9 @@ let rss_tick = async () => {
 
 let rss_loop = async () => {
   setTimeout(async () => {
-    await rss_tick();
+    try {
+      await rss_tick();
+    } catch {}
     await rss_loop();
   }, MINIMUM_INTERVAL * 1000);
 }
