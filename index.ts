@@ -119,7 +119,9 @@ let rss_loop = async () => {
   setTimeout(async () => {
     try {
       await rss_tick();
-    } catch {}
+    } catch (e) {
+      console.log(e);
+    }
     await rss_loop();
   }, MINIMUM_INTERVAL * 1000);
 }
