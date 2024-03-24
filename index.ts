@@ -3,7 +3,10 @@ import { ShardClient } from 'detritus-client';
 import Parser from 'rss-parser';
 import fs from 'fs/promises';
 
-let parser = new Parser();
+let parser = new Parser({
+  headers: {'User-Agent': 'https://github.com/Vocaned/YADRSSFB'},
+  timeout: 10 * 1000
+});
 const client = new ShardClient(process.env.DISCORD_TOKEN ?? '', {
   gateway: {
     presence: {
@@ -33,9 +36,9 @@ let channel_data: ChannelData = {};
 
 interface FeedRegexResult {
   url: string,
-  prefix: string
+  format: string
 }
-const FEED_REGEX = /feed: ?(?<url>https?:\/\/\S+)( prefix: ?(?<prefix>.+))?/gim
+const FEED_REGEX = /feed: ?(?<url>https?:\/\/\S+)( format: ?(?<format>.+))?/gim
 const INTERVAL_REGEX = /interval: ?(?<interval>\d+)/gim
 
 let file_exists = async (path: string) => {
@@ -87,24 +90,35 @@ let rss_tick = async () => {
           console.log(`Populating ${feed.title} SeenArticles with existing posts`)
 
           for (let item of feed.items) {
-            data.seen.push(item.guid ?? item.link ?? item.title ?? '');
+            let guid = item.guid ?? item.id ?? item.link ?? item.title;
+            if (guid) data.seen.push(guid);
           }
           continue;
         }
 
         for (let item of feed.items.reverse()) {
-          if ((item.title ?? item.link) === undefined) continue; // No title or link in article
-          if (data.seen.includes(item.guid ?? item.link ?? item.title ?? '')) continue; // Already seen
+          let guid = item.guid ?? item.id ?? item.link ?? item.title;
+          if (!guid || data.seen.includes(guid)) continue; // Already seen
 
-          let content = '';
-          if (groups.prefix) content = `${groups.prefix}: `;
+          let format: string;
+          if (groups.format) format = groups.format;
+          else {
+            if (item.title && item.link) format = '[{title}]({link})';
+            else if (item.title) format = '{title}'
+            else if (item.link) format = '{link}'
+            else continue; // No title or link in article, and no custom formatting given
+          }
+          let content = format;
 
-          if (item.link) content += `[${item.title ?? item.link}](${item.link})`;
-          else content += item.title;
+          let format_key = /\{(?<key>.+?)\}/gi;
+          let key: string | undefined;
+          while (key = format_key.exec(format)?.groups?.key) {
+            if (key && Object.keys(item).includes(key)) content = content.replace(`{${key}}`, item[key])
+          }
 
           await channel.createMessage({content: content});
 
-          data.seen.push(item.guid ?? item.link ?? item.title ?? '');
+          data.seen.push(guid);
           if (data.seen.length > MAX_SEEN_COUNT) data.seen.shift(); // Remove old entries
         }
       }
