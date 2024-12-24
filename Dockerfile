@@ -5,6 +5,6 @@ WORKDIR /app
 COPY . /app
 
 RUN npm i
-RUN tsc
+RUN npx tsc
 
 CMD ["node", "dist/index.js"]
