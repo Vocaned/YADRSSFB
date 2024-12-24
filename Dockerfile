@@ -5,6 +5,6 @@ WORKDIR /app
 COPY . /app
 
 RUN npm i
+RUN tsc
 
-CMD ["npm", "start"]
-
+CMD ["node", "dist/index.js"]
